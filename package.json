@@ -1,9 +1,10 @@
 {
-  "name": "stat-commit",
-  "displayName": "stat-commit",
-  "description": "stat git commit for the current project today",
+  "name": "today-commit",
+  "displayName": "today-commit",
+  "description": "Get the git commit statistics for today in the project for VSCode plugin",
   "version": "0.0.1",
   "publisher": "jehangao",
+  "icon": "icon.jpg",
   "engines": {
     "vscode": "^1.82.0"
   },
@@ -15,14 +16,21 @@
   "contributes": {
     "commands": [
       {
-        "command": "stat-commit.stat",
-        "title": "stat"
+        "command": "today-commit.stat",
+        "title": "stat",
+        "category": "today-commit"
       },
       {
-        "command": "stat-commit.commit",
-        "title": "commit"
+        "command": "today-commit.list",
+        "title": "list",
+        "category": "today-commit"
+      },
+      {
+        "command": "today-commit.all",
+        "title": "all list",
+        "category": "today-commit"
       }
-    ]
+    ] 
   },
   "scripts": {
     "vscode:prepublish": "pnpm run package",
@@ -51,5 +59,10 @@
     "typescript": "^5.1.6",
     "webpack": "^5.88.2",
     "webpack-cli": "^5.1.4"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": ""
+  },
+  "license": "MIT"
 }

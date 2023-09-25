@@ -12,37 +12,36 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// Use the console to output diagnostic information (console.log) and errors (console.error)
 	// This line of code will only be executed once when your extension is activated
-	console.log('Congratulations, your extension "stat-commit" is now active!');
+	console.log('Congratulations, your extension "today-commit" is now active!');
 
 	const today = moment(new Date()).format('YYYY-MM-DD');
-	console.log('today ->', today);
 
 	// The command has been defined in the package.json file
 	// Now provide the implementation of the command with registerCommand
 	// The commandId parameter must match the command field in package.json
-	let disposable = vscode.commands.registerCommand('stat-commit.stat', async () => {
+	let disposable = vscode.commands.registerCommand('today-commit.stat', async () => {
 		// The code you place here will be executed every time your command is executed
 		// Display a message box to the user
-		
-		const repoPath = vscode.workspace.workspaceFile;
-		if (!repoPath) {
-			return vscode.window.showErrorMessage('repoPath is not found');
+
+		let repoPath = '';
+		if (vscode.workspace.workspaceFolders) {
+			repoPath = vscode.workspace.workspaceFolders[0].uri.fsPath;
 		}
-		const curProjectName = path.basename(repoPath);
-		console.log(curProjectName)
-		context.globalState.update(today, null);
+		if (!repoPath) {
+			return vscode.window.showErrorMessage('repoPath missing');
+		}
 
 		vscode.window.showInformationMessage('开始统计当前项目今日 commit 信息 ！');
 
+		const curProjectName = path.basename(repoPath);
+
 		try {
-			const commitData = await getCommitsForToday(repoPath as unknown as string)
-			console.log('commitData ->', commitData);
+			const commitData = await getCommitsForToday(repoPath as unknown as string);
 			if (!commitData) {
 				vscode.window.showInformationMessage(`${curProjectName} 今日没有提交 commit 信息！`);
 				return
 			}
 			const globalData: any = context.globalState.get(today);
-			console.log('globalData --->', JSON.stringify(globalData));
 			if (!globalData) {
 				context.globalState.update(today, { [curProjectName]: commitData });
 			} else {
@@ -55,42 +54,46 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	});
 
-	let webview = vscode.commands.registerCommand('stat-commit.commit', async () => {
-
+	let webviewList = vscode.commands.registerCommand('today-commit.list', async () => {
 		 // 创建并显示新的webview
 		 const panel = vscode.window.createWebviewPanel(
-			'stat-commit', // 只供内部使用，这个webview的标识
-			'commit', // 给用户显示的面板标题
+			'today-commit', // 只供内部使用，这个webview的标识
+			'today commit list', // 给用户显示的面板标题
 			vscode.ViewColumn.One, // 给新的webview面板一个编辑器视图
 			{},
 		);
 
-		const today = moment(new Date()).format('YYYY-MM-DD');
 		const globalData: Record<string, string[]> | null | undefined = context.globalState.get(today);
-		console.log(JSON.stringify(globalData))
+		// console.log('keys', context.globalState.keys())
 		// 设置HTML内容
-		panel.webview.html = getWebviewContent(today, globalData);
-	})
+		const htmlStr = getHtmlStr(today, globalData);
+		panel.webview.html = getWebviewContent(htmlStr);
+	});
 
-	context.subscriptions.push(disposable, webview);
+	let webviewAllList = vscode.commands.registerCommand('today-commit.all', async () => {
+		const panel = vscode.window.createWebviewPanel(
+			'today-commit',
+			'all commit list',
+			vscode.ViewColumn.One,
+			{},
+		);
+		const keys: readonly string[] = context.globalState.keys();
+		let htmlStr = ''
+		if (!keys.length) {
+			panel.webview.html = htmlStr;
+			return
+		}
+		keys.forEach((key) => {
+			const itemData: Record<string, string[]> | null | undefined = context.globalState.get(key);
+			htmlStr += getHtmlStr(key, itemData);
+		})
+		panel.webview.html = getWebviewContent(htmlStr);
+	});
+
+	context.subscriptions.push(disposable, webviewList, webviewAllList);
 }
 
-function getWebviewContent(today: string, data: Record<string,string[]> | null | undefined): string {
-	if (!data) return ''
-
-	let htmlStr = `<h1>${today}</h2>`
-	Object.entries(data).forEach (arr => {
-		const [	key, values ] = arr
-		htmlStr += `<h2>[项目] ${key}:</h2>`
-		for (let key in values) {
-			htmlStr += `<h3>[分支] ${key}</h3>`
-			const commits = (values[key] as unknown as Array<any>)
-			commits.forEach((commit) => {
-				htmlStr += `<p>${commit.message} （${commit.author}）</p>`
-			})
-		}
-	})
-
+function getWebviewContent(htmlStr: string): string {
 	return (
 		`
 		<!DOCTYPE html>
@@ -105,7 +108,29 @@ function getWebviewContent(today: string, data: Record<string,string[]> | null |
 		</body>
 		</html>
 	`);
-  }
+}
+
+function getHtmlStr(title: string, data: Record<string,string[]> | null | undefined): string {
+	if (!data) return '';
+
+	let htmlStr = `<h1>${title}</h2>`;
+
+	Object.entries(data).forEach (arr => {
+		const [	projectName, commitInfo ] = arr;
+		htmlStr += `<h2>[项目] ${projectName}:</h2>`;
+		if (typeof commitInfo !== 'object') return htmlStr = '';
+		for (let branch in commitInfo) {
+			htmlStr += `<h3>[分支] ${branch}</h3>`;
+			const commits = (commitInfo[branch] as unknown as Array<any>);
+			if (Array.isArray(commits)) {
+				commits.forEach((commit) => {
+					htmlStr += `<p>${commit.message} （${commit.author}）</p>`;
+				})
+			}
+		}
+	})
+	return htmlStr;
+}
 
 // This method is called when your extension is deactivated
 export function deactivate() {}
