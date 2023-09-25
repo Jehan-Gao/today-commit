@@ -2,7 +2,7 @@
   "name": "today-commit",
   "displayName": "today-commit",
   "description": "Get the git commit statistics for today in the project for VSCode plugin",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "publisher": "jehangao",
   "icon": "icon.jpg",
   "engines": {
