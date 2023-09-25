@@ -47,50 +47,59 @@ export function activate(context: vscode.ExtensionContext) {
 			} else {
 				const originalData = globalData[curProjectName] || {};
 				const updateData = { ...originalData, ...commitData };
-				context.globalState.update(today, { ...globalData, ...updateData, });
+				const newData = { ...globalData, [curProjectName]: updateData };
+				context.globalState.update(today, newData);
 			}
 		} catch (error) {
 			console.error(error);
 		}
 	});
 
-	let webviewList = vscode.commands.registerCommand('today-commit.list', async () => {
-		 // 创建并显示新的webview
-		 const panel = vscode.window.createWebviewPanel(
-			'today-commit', // 只供内部使用，这个webview的标识
-			'today commit list', // 给用户显示的面板标题
-			vscode.ViewColumn.One, // 给新的webview面板一个编辑器视图
-			{},
-		);
-
+	let listPanel: vscode.WebviewPanel | undefined;
+	const listWebView = vscode.commands.registerCommand('today-commit.list', async () => {
+		if (listPanel) {
+			listPanel.reveal(vscode.ViewColumn.One);
+		} else {
+			// 创建并显示新的webview
+			listPanel = vscode.window.createWebviewPanel(
+				'today-commit', // 只供内部使用，这个webview的标识
+				'today commit list', // 给用户显示的面板标题
+				vscode.ViewColumn.One, // 给新的webview面板一个编辑器视图
+				{},
+			);
+		}
 		const globalData: Record<string, string[]> | null | undefined = context.globalState.get(today);
-		// console.log('keys', context.globalState.keys())
 		// 设置HTML内容
 		const htmlStr = getHtmlStr(today, globalData);
-		panel.webview.html = getWebviewContent(htmlStr);
+		listPanel.webview.html = getWebviewContent(htmlStr);
 	});
 
-	let webviewAllList = vscode.commands.registerCommand('today-commit.all', async () => {
-		const panel = vscode.window.createWebviewPanel(
-			'today-commit',
-			'all commit list',
-			vscode.ViewColumn.One,
-			{},
-		);
+	let allListPanel: vscode.WebviewPanel | undefined;
+	const allListWebView = vscode.commands.registerCommand('today-commit.all', async () => {
+		if (allListPanel) {
+			allListPanel.reveal(vscode.ViewColumn.One);
+		} else {
+			allListPanel = vscode.window.createWebviewPanel(
+				'today-commit',
+				'all commit list',
+				vscode.ViewColumn.One,
+				{},
+			);
+		}
 		const keys: readonly string[] = context.globalState.keys();
 		let htmlStr = ''
 		if (!keys.length) {
-			panel.webview.html = htmlStr;
+			allListPanel.webview.html = htmlStr;
 			return
 		}
 		keys.forEach((key) => {
 			const itemData: Record<string, string[]> | null | undefined = context.globalState.get(key);
 			htmlStr += getHtmlStr(key, itemData);
 		})
-		panel.webview.html = getWebviewContent(htmlStr);
+		allListPanel.webview.html = getWebviewContent(htmlStr);
 	});
 
-	context.subscriptions.push(disposable, webviewList, webviewAllList);
+	context.subscriptions.push(disposable, listWebView, allListWebView);
 }
 
 function getWebviewContent(htmlStr: string): string {
@@ -114,17 +123,18 @@ function getHtmlStr(title: string, data: Record<string,string[]> | null | undefi
 	if (!data) return '';
 
 	let htmlStr = `<h1>${title}</h2>`;
+	const space = '&nbsp;&nbsp;&nbsp;&nbsp;'
 
 	Object.entries(data).forEach (arr => {
 		const [	projectName, commitInfo ] = arr;
-		htmlStr += `<h2>[项目] ${projectName}:</h2>`;
+		htmlStr += `<h2>Project: ${projectName}</h2>`;
 		if (typeof commitInfo !== 'object') return htmlStr = '';
 		for (let branch in commitInfo) {
-			htmlStr += `<h3>[分支] ${branch}</h3>`;
+			htmlStr += `<h3>${space}branch: ${branch}</h3>`;
 			const commits = (commitInfo[branch] as unknown as Array<any>);
 			if (Array.isArray(commits)) {
 				commits.forEach((commit) => {
-					htmlStr += `<p>${commit.message} （${commit.author}）</p>`;
+					htmlStr += `<p>${space}${space} ${commit.message} （${commit.author}）</p>`;
 				})
 			}
 		}
